@@ -1,7 +1,7 @@
 
 # Projekt i implementacja gry webowej gatunku social deduction
 
-Praca opisuje przebieg projektowania oraz implementacji wieloosobowej gry webowej gatunku social deduction. Gracz wchodząc w interakcję z fizycznym obiektem w konkretnej lokalizacji może podjąć konkretne działania mające na celu doprowadzenie drużyny do zwycięstwa poprzez realizację konkretnego celu lub wyeliminowania drużyny przeciwnej. Przynależność do grup nie jest jawna. Część serwerowa oparty jest na języku Python z zastosowaniem frameworku Flask, część klienta wykorzystuje standardowe technologie webowe: JavaScript, HTML oraz CSS.
+Praca opisuje przebieg projektowania oraz implementacji wieloosobowej gry webowej gatunku social deduction. Gracz wchodząc w interakcję z fizycznym obiektem w specyficznej lokalizacji może podjąć konkretne działania mające na celu doprowadzenie drużyny do zwycięstwa poprzez realizację zadanego celu lub wyeliminowania drużyny przeciwnej. Przynależność do grup nie jest jawna. Część serwerowa oparty jest na języku Python z zastosowaniem frameworku Flask, część klienta wykorzystuje standardowe technologie webowe: JavaScript, HTML oraz CSS.
 ﻿
 # Desing and implementation of social deduction web game
  

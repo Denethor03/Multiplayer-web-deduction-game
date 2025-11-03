@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Welcome to Chat</title>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+</head>
+<body>
+
+    <div x-data="homeApp()">
+        <h1>Simple Chat Rooms</h1>
+        <input type="text" x-model="nick" placeholder="Enter your nickname">
+        <br><br>
+        <div>
+            <input type="text" x-model="room" placeholder="Enter room code to join">
+            <button @click="joinRoom" :disabled="!nick.trim() || !room.trim()">Join Room</button>
+        </div>
+        <hr>
+        <div>
+            <button @click="createRoom" :disabled="!nick.trim()">Create New Room</button>
+        </div>
+        <p x-text="error" style="color: red;"></p>
+    </div>
+
+    <script>
+        function homeApp() {
+            return {
+                nick: '',
+                room: '',
+                error: '',
+                socket: null,
+
+                init() {
+                    this.socket = io();
+
+
+                    this.socket.on('room_created', (data) => {
+                        // When a room is created, automatically redirect to the chat page
+                        this.room = data.room;
+                        this.joinRoom();
+                    });
+                },
+
+                createRoom() {
+                    if (!this.nick.trim()) {
+                        this.error = 'Please enter a nickname first.';
+                        return;
+                    }
+                    this.socket.emit('create_room', { nick: this.nick });
+                },
+
+                joinRoom() {
+                    if (!this.nick.trim() || !this.room.trim()) {
+                        this.error = 'Nickname and room code are required to join.';
+                        return;
+                    }
+
+                    window.location.href = `/lobby?nick=${this.nick}&room=${this.room}`;
+                }
+            }
+        }
+        document.addEventListener('alpine:init', () => {
+            Alpine.data('homeApp', homeApp);
+        });
+    </script>
+
+</body>
+</html>

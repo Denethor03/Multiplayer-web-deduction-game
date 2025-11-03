@@ -1,233 +1,152 @@
-from flask import Flask, render_template, request, session, redirect, url_for
-from flask_socketio import SocketIO, emit, disconnect
+import shortuuid
 import random
+from flask import Flask, render_template, request
+from flask_socketio import SocketIO, join_room, leave_room, send
 
 app = Flask(__name__)
-
-app.config['SECRET_KEY'] = 'your-very-secret-and-unique-key'
+app.config['SECRET_KEY'] = 'your-very-secret-game-key-2'
 socketio = SocketIO(app)
 
 
-
-players = {}  # {sid: 'nickname'}
-messages = []  # [{'nick': 'System', 'text': 'Welcome!'}]
-
+rooms = {}
+REQUIRED_PLAYERS = 2  # change later to 6 or smth
 
 
-QR_CODE_ACTIONS = {
-    "LOC_ENG_ROOM_01": {
-        "location_name": "Engine Room",
-        "action_description": "You can sabotage the engine! (Red Team only)",
-        "allowed_team": "red_team"
+LOCATIONS = {
+    "interest_point1": {
+        "name": "North Shrine",
+        "actions": ["a1", "a2", "a3"]
     },
-    "LOC_MED_BAY_02": {
-        "location_name": "Med Bay",
-        "action_description": "You can heal a teammate! (Blue Team only)",
-        "allowed_team": "blue_team"
+    "interest_point2": {
+        "name": "South shrine",
+        "actions": ["b1", "b2", "b3"]
     },
-    "LOC_BRIDGE_03": {
-        "location_name": "The Bridge",
-        "action_description": "You can view security logs.",
-        "allowed_team": "all"
+    "interest_point3": {
+        "name": "East Shrine",
+        "actions": ["c1", "c2", "c3"]
     }
 }
-game_state = {
-    'status': 'waiting',
-    'required_players': 2,
-    'teams': {
-        'red_team': [],
-        'blue_team': []
-    },
-    'winner_team': None
-}
-
-@app.route('/', methods=['GET', 'POST'])
-def index():
-    """The join page."""
-    if request.method == 'POST':
-        nick = request.form.get('nick')
-        if nick and nick.strip():
-            session['nick'] = nick.strip()
-            return redirect(url_for('chat'))
-
-    return render_template('index.html')
 
 
-@app.route('/chat')
-def chat():
-    """The main chat room page."""
-    if 'nick' not in session:
-        return redirect(url_for('index.html'))
+# rotes
+@app.route('/')
+def home(): return render_template('home.html')
 
 
-    if len(players) >= game_state['required_players'] or game_state['status'] != 'waiting':
-        return render_template('error_page.html', message='Game is full or already in progress.')
+@app.route('/lobby')
+def lobby():
+    username = request.args.get('nick')
+    room = request.args.get('room')
+    return render_template('lobby.html', username=username, room=room, required_players=REQUIRED_PLAYERS)
 
-    return render_template('chat.html', nick=session['nick'])
+
+@app.route('/game')
+def game():
+    username = request.args.get('nick')
+    room = request.args.get('room')
+    team = request.args.get('team')  # Team is now passed in the URL
+    return render_template('game.html', username=username, room=room, team=team)
 
 
+# socket handles (emit - recieve do - do something ping pong)
 
-@socketio.on('connect')
-def handle_connect():
-    nick = session.get('nick')
-    if not nick:
+@socketio.on('create_room')
+def handle_create_room(data):
+    room_code = shortuuid.uuid()[:6].upper()
+    rooms[room_code] = {'players': []}
+    socketio.emit('room_created', {'room': room_code})
+
+
+@socketio.on('join_lobby')
+def handle_join_lobby(data):
+    username = data['nick']
+    room = data['room']
+
+    if room not in rooms:
+
         return
 
+    rooms[room]['players'].append({'sid': request.sid, 'nick': username})
+    join_room(room)
 
-    if len(players) >= game_state['required_players']:
-        emit('server_error', {'message': 'Sorry, the game is full or already in progress.'})
-        disconnect()
-        return
+    player_count = len(rooms[room]['players'])
+    socketio.emit('player_update', {'count': player_count, 'required': REQUIRED_PLAYERS}, to=room)
+    send({'nick': 'System', 'text': f'{username} has joined the lobby.'}, to=room)
 
+    if player_count == REQUIRED_PLAYERS:
+        # smth with teams
+        players_in_room = rooms[room]['players']
+        random.shuffle(players_in_room)
+        team_a_size = REQUIRED_PLAYERS // 2
 
-    players[request.sid] = nick
-    print(f"Client connected: {nick} ({request.sid})")
-
-
-    emit('chat_history', {'messages': messages})
-    emit('user_update', {'message': f'{nick} has joined ({len(players)}/{game_state["required_players"]})'},
-         broadcast=True)
-    emit('player_list_update', {'players': list(players.values())}, broadcast=True)
-
-
-    emit('game_state_update', game_state)
+        for i, player in enumerate(players_in_room):
+            player['team'] = 'Team A' if i < team_a_size else 'Team B'
 
 
-    check_for_game_start()
+        socketio.emit('start_game', {'players': players_in_room}, to=room)
+
+
+@socketio.on('join_game')
+def handle_join_game(data):
+    join_room(data['room'])
+    send({'nick': 'System', 'text': f'{data["nick"]} ({data["team"]}) has entered the game.'}, to=data['room'])
+
+
+# qr scannign
+@socketio.on('qr_scan')
+def handle_qr_scan(data):
+    username = data['nick']
+    room = data['room']
+    code_data = data['code']
+
+    location = LOCATIONS.get(code_data)
+
+    if location:
+        # remove nickname perhaps
+        send({'nick': 'System', 'text': f'Location "{location["name"]}" was visited by {username}.'}, to=room)
+
+
+        socketio.emit('available_actions', {
+            'location_id': code_data,
+            'location_name': location['name'],
+            'actions': location['actions']
+        }, to=request.sid)  # this sends only to player who scannes
+    else:
+
+        socketio.emit('game_error', {'message': 'That QR code is not recognized.'}, to=request.sid)
+
+
+
+@socketio.on('game_action')
+def handle_game_action(data):
+    username = data['nick']
+    room = data['room']
+    action = data['action']
+    location_name = data['location_name']
+
+    # to do actual logic
+    response_text = f'{username} chose to "{action}" at {location_name}.'
+
+
+    send({'nick': 'System', 'text': response_text}, to=room)
+
+
+@socketio.on('message')
+def handle_message(data):
+    send(data, to=data['room'])
+
 
 
 @socketio.on('disconnect')
 def handle_disconnect():
-    if request.sid in players:
-        nick = players.pop(request.sid)
-        print(f"Client disconnected: {nick} ({request.sid})")
-
-        emit('user_update', {'message': f'{nick} has left the game.'}, broadcast=True)
-        emit('player_list_update', {'players': list(players.values())}, broadcast=True)
-
-
-        if game_state['status'] == 'in_progress':
-            emit('user_update', {'message': 'A player disconnected. The game has been reset.'}, broadcast=True)
-            reset_game()
-@socketio.on('new_message')
-def handle_new_message(data):
-
-    nick = session.get('nick')
-    if not nick:
-        return
-
-    message = {
-        'nick': nick,
-        'text': data['text']
-    }
-    messages.append(message)
-
-    if len(messages) > 10:
-        messages.pop(0)
-
-
-    emit('chat_update', message, broadcast=True)
-
-
-
-
-def check_for_game_start():
-
-    if game_state['status'] == 'waiting' and len(players) == game_state['required_players']:
-        start_game()
-
-
-
-
-def start_game():
-
-    print("--- Enough players have joined! Starting the game. ---")
-    game_state['status'] = 'in_progress'
-
-    player_nicks = list(players.values())
-    random.shuffle(player_nicks)
-
-    midpoint = len(player_nicks) // 2
-    game_state['teams']['red_team'] = player_nicks[:midpoint]
-    game_state['teams']['blue_team'] = player_nicks[midpoint:]
-
-    print(f"Teams assigned: {game_state['teams']}")
-
-
-    socketio.emit('user_update', {'message': 'The game is starting! Teams have been assigned.'}, namespace='/')
-    socketio.emit('game_state_update', game_state, namespace='/')
-
-
-
-def reset_game():
-
-    global game_state, messages
-    game_state = {
-        'status': 'waiting',
-        'required_players': 2,
-        'teams': {'red_team': [], 'blue_team': []},
-        'winner_team': None
-    }
-    messages = []
-    print("--- Game has been reset. ---")
-
-    socketio.emit('game_state_update', game_state, broadcast=True)
-    socketio.emit('user_update', {'message': 'A new game is available! Waiting for players...'}, broadcast=True)
-
-
-
-
-@socketio.on('qr_scan_action')
-def handle_qr_scan(data):
-    nick = session.get('nick')
-    qr_text = data.get('qr_data')
-
-
-    if not nick or not qr_text or game_state['status'] != 'in_progress':
-        return
-
-    print(f"Player '{nick}' scanned QR code: '{qr_text}'")
-
-
-    if qr_text in QR_CODE_ACTIONS:
-        action = QR_CODE_ACTIONS[qr_text]
-
-
-        player_team = None
-        if nick in game_state['teams']['red_team']:
-            player_team = 'red_team'
-        elif nick in game_state['teams']['blue_team']:
-            player_team = 'blue_team'
-
-        if action['allowed_team'] == 'all' or action['allowed_team'] == player_team:
-
-
-
-            emit('user_update', {
-                'message': f"{nick} scanned '{action['location_name']}' and performed an action!"
-            }, broadcast=True)
-
-
-            emit('action_feedback', {
-                'success': True,
-                'message': f"Success! You used the action: {action['action_description']}"
-            })
-
-
-        else:
-
-            emit('action_feedback', {
-                'success': False,
-                'message': f"Your team cannot use the action at '{action['location_name']}'."
-            })
-    else:
-
-        emit('action_feedback', {
-            'success': False,
-            'message': "This QR code is not valid for this game."
-        })
-
-
+    for room_code, room_data in rooms.items():
+        player_to_remove = next((p for p in room_data.get('players', []) if p['sid'] == request.sid), None)
+        if player_to_remove:
+            room_data['players'].remove(player_to_remove)
+            send({'nick': 'System', 'text': f'{player_to_remove["nick"]} has left.'}, to=room_code)
+            socketio.emit('player_update', {'count': len(room_data['players']), 'required': REQUIRED_PLAYERS},
+                          to=room_code)
+            break
 
 if __name__ == '__main__':
     import os

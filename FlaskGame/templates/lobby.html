@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Lobby</title>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+</head>
+<body>
+
+<div x-data="lobbyApp('{{ username }}', '{{ room }}', {{ required_players }})">
+    <h1>Waiting Lobby</h1>
+    <h2>Room Code: <span x-text="room" style="color: blue;"></span></h2>
+
+    <div style="font-size: 1.5em; margin: 20px 0;">
+        <p>Players: <span x-text="playerCount"></span> / <span x-text="requiredPlayers"></span></p>
+        <p x-show="playerCount < requiredPlayers">Waiting for more players...</p>
+        <p x-show="playerCount === requiredPlayers">All players have joined! Starting game...</p>
+    </div>
+
+
+    <button @click="isChatVisible = !isChatVisible" x-text="isChatVisible ? 'Hide Chat' : 'Show Chat'"></button>
+    <div x-show="isChatVisible" style="margin-top: 10px;">
+
+        <div id="messages" style="height: 200px; overflow-y: scroll; border: 1px solid #ddd; padding: 5px;">
+            <template x-for="message in messages">
+                <div><strong x-text="message.nick + ':'"></strong> <span x-text="message.text"></span></div>
+            </template>
+        </div>
+        <input type="text" x-model="newMessage" @keyup.enter="sendMessage" placeholder="Type a message...">
+        <button @click="sendMessage">Send</button>
+    </div>
+</div>
+
+<script>
+function lobbyApp(username, roomCode, required) {
+    return {
+        nick: username,
+        room: roomCode,
+        playerCount: 0,
+        requiredPlayers: required,
+        socket: null,
+        team: null,
+
+        isChatVisible: true,
+        messages: [],
+        newMessage: '',
+
+        init() {
+            this.socket = io();
+            this.socket.emit('join_lobby', { nick: this.nick, room: this.room });
+            this.socket.on('player_update', (data) => { this.playerCount = data.count; });
+            this.socket.on('message', (data) => { this.messages.push(data); });
+
+
+            this.socket.on('start_game', (data) => {
+
+                const me = data.players.find(p => p.nick === this.nick);
+                const myTeam = me ? me.team : 'Unknown';
+
+
+                window.location.href = `/game?nick=${this.nick}&room=${this.room}&team=${myTeam}`;
+            });
+        },
+        sendMessage() {
+            if (this.newMessage.trim()) {
+                this.socket.emit('message', { nick: this.nick, text: this.newMessage, room: this.room });
+                this.newMessage = '';
+            }
+        }
+    }
+}
+</script>
+
+</body>
+</html>

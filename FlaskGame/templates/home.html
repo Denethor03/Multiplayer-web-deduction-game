@@ -2,24 +2,31 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Welcome to Chat</title>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
 
-    <div x-data="homeApp()">
+     <div class="container" x-data="homeApp()">
         <h1>Simple Chat Rooms</h1>
-        <input type="text" x-model="nick" placeholder="Enter your nickname">
-        <br><br>
-        <div>
+        <div class="form-group">
+            <input type="text" x-model="nick" placeholder="Enter your nickname">
+        </div>
+
+        <div class="form-group">
             <input type="text" x-model="room" placeholder="Enter room code to join">
-            <button @click="joinRoom" :disabled="!nick.trim() || !room.trim()">Join Room</button>
+            <button class="btn btn-primary" @click="joinRoom" :disabled="!nick.trim() || !room.trim()">Join Room</button>
         </div>
+
         <hr>
-        <div>
-            <button @click="createRoom" :disabled="!nick.trim()">Create New Room</button>
+
+        <div class="form-group">
+            <button class="btn btn-secondary" @click="createRoom" :disabled="!nick.trim()">Create New Room</button>
         </div>
+
         <p x-text="error" style="color: red;"></p>
     </div>
 

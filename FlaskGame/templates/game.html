@@ -2,56 +2,49 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Game Started!</title>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
-    <style>
 
-        .modal-overlay {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0, 0, 0, 0.7); display: flex;
-            justify-content: center; align-items: center; z-index: 100;
-        }
-        .modal-content { background: white; padding: 20px; max-width: 80%; max-height: 80%; }
-        #qr-reader { width: 500px; border: 2px solid #ddd; }
-    </style>
 </head>
 <body>
 
-<div x-data="gameApp('{{ username }}', '{{ room }}', '{{ team }}')">
+<div class="container" x-data="gameApp('{{ username }}', '{{ room }}', '{{ team }}')">
     <h1>Game in Progress - Room: <span x-text="room"></span></h1>
 
 
     <div>
-        <button @click="isMapVisible = true">Show Map</button>
-        <button @click="startScanner()">Scan QR Code</button>
+        <button class="btn btn-secondary" @click="isMapVisible = true">Show Map</button>
+        <button class="btn btn-primary" @click="startScanner()">Scan QR Code</button>
     </div>
 
 
-     <div style="text-align: center; margin: 20px; padding: 20px; border: 2px dashed grey;">
+     <div class="game-actions">
         <div x-show="!currentLocation.name">
-            <h3 style="color: #666;">Scan a QR code to discover actions.</h3>
+            <h3 >Scan a QR code to discover actions.</h3>
         </div>
         <div x-show="currentLocation.name">
             <h3>Actions for <span x-text="currentLocation.name" style="color: purple;"></span>:</h3>
 
             <template x-for="action in availableActions" :key="action">
-                <button @click="performAction(action)" x-text="action"></button>
+                <button class="btn btn-primary" @click="performAction(action)" x-text="action"></button>
             </template>
         </div>
     </div>
 
 
     <h3>Game Log & Chat</h3>
-    <div id="messages" style="height: 300px; overflow-y: scroll; border: 1px solid #ddd; padding: 5px; background: #f9f9f9;">
+    <div id="messages">
         <template x-for="message in messages">
             <div><strong x-text="message.nick + ':'"></strong> <span x-text="message.text"></span></div>
         </template>
     </div>
     <input type="text" x-model="newMessage" @keyup.enter="sendMessage" placeholder="Type a message...">
-    <button @click="sendMessage">Send</button>
+    <button class="btn btn-primary" @click="sendMessage">Send</button>
 
 
     <div x-show="isMapVisible" class="modal-overlay" @click.self="isMapVisible = false">
@@ -59,7 +52,7 @@
             <h2 style="margin-top:0;">Game Map</h2>
             <img src="/static/map.jpg" alt="Game Map" style="max-width: 100%;">
             <br>
-            <button @click="isMapVisible = false">Close</button>
+            <button class="btn btn-primary" @click="isMapVisible = false">Close</button>
         </div>
     </div>
 
@@ -68,104 +61,104 @@
         <div class="modal-content">
             <h2 style="margin-top:0;">Scan QR Code</h2>
             <div id="qr-reader"></div>
-            <button @click="stopScanner()">Cancel</button>
+            <button class="btn btn-primary" @click="stopScanner()">Cancel</button>
             <p x-text="scannedCode ? 'Scanned: ' + scannedCode : 'Point camera at a QR Code'"></p>
         </div>
     </div>
 </div>
 
 <script>
-function gameApp(username, roomCode, teamName) {
-    return {
-        // Core state
-        nick: username,
-        room: roomCode,
-        team: teamName,
-        socket: null,
-        // Chat state
-        messages: [],
-        newMessage: '',
-        // Game state
-        currentLocation: { id: null, name: null },
-        availableActions: [],
-        isMapVisible: false,
-        // Scanner state
-        isScannerVisible: false,
-        qrScanner: null,
-        scannedCode: null,
+    function gameApp(username, roomCode, teamName) {
+        return {
+            // Core state
+            nick: username,
+            room: roomCode,
+            team: teamName,
+            socket: null,
+            // Chat state
+            messages: [],
+            newMessage: '',
+            // Game state
+            currentLocation: { id: null, name: null },
+            availableActions: [],
+            isMapVisible: false,
+            // Scanner state
+            isScannerVisible: false,
+            qrScanner: null,
+            scannedCode: null,
 
-        init() {
-            this.socket = io();
-            this.socket.emit('join_game', { nick: this.nick, room: this.room, team: this.team });
+            init() {
+                this.socket = io();
+                this.socket.emit('join_game', { nick: this.nick, room: this.room, team: this.team });
 
-            this.socket.on('message', (data) => { this.updateChat(data); });
+                this.socket.on('message', (data) => { this.updateChat(data); });
 
-            this.socket.on('available_actions', (data) => {
-                this.currentLocation = { id: data.location_id, name: data.location_name };
-                this.availableActions = data.actions;
-            });
-
-            this.socket.on('game_error', (data) => { alert(data.message); });
-        },
-
-        updateChat(data) {
-            this.messages.push(data);
-            // Auto-scroll chat to the bottom
-            this.$nextTick(() => {
-                const msgBox = document.getElementById('messages');
-                msgBox.scrollTop = msgBox.scrollHeight;
-            });
-        },
-
-        performAction(action) {
-            this.socket.emit('game_action', {
-                nick: this.nick,
-                room: this.room,
-                action: action,
-                location_name: this.currentLocation.name
-            });
-
-            this.availableActions = [];
-            this.currentLocation = { id: null, name: null };
-        },
-
-        sendMessage() {
-            if (this.newMessage.trim()) {
-                this.socket.emit('message', { nick: this.nick, text: this.newMessage, room: this.room });
-                this.newMessage = '';
-            }
-        },
-
-
-         startScanner() {
-            this.isScannerVisible = true;
-            this.$nextTick(() => {
-                this.qrScanner = new Html5Qrcode("qr-reader");
-                const qrCodeSuccessCallback = (decodedText, decodedResult) => {
-                    this.scannedCode = decodedText;
-                    this.stopScanner();
-
-                    this.socket.emit('qr_scan', { nick: this.nick, room: this.room, code: decodedText });
-                };
-                this.qrScanner.start({ facingMode: "environment" }, { fps: 10, qrbox: { width: 250, height: 250 } }, qrCodeSuccessCallback)
-                    .catch(err => console.log("QR scanner error", err));
-            });
-        },
-
-        stopScanner() {
-            if (this.qrScanner) {
-                this.qrScanner.stop().then(() => {
-                    console.log("QR Scanner stopped.");
-                }).catch(err => {
-                    console.log("Failed to stop QR Scanner.", err);
-                }).finally(() => {
-                    this.isScannerVisible = false;
-                    this.scannedCode = null;
+                this.socket.on('available_actions', (data) => {
+                    this.currentLocation = { id: data.location_id, name: data.location_name };
+                    this.availableActions = data.actions;
                 });
+
+                this.socket.on('game_error', (data) => { alert(data.message); });
+            },
+
+            updateChat(data) {
+                this.messages.push(data);
+
+                this.$nextTick(() => {
+                    const msgBox = document.getElementById('messages');
+                    msgBox.scrollTop = msgBox.scrollHeight;
+                });
+            },
+
+            performAction(action) {
+                this.socket.emit('game_action', {
+                    nick: this.nick,
+                    room: this.room,
+                    action: action,
+                    location_name: this.currentLocation.name
+                });
+
+                this.availableActions = [];
+                this.currentLocation = { id: null, name: null };
+            },
+
+            sendMessage() {
+                if (this.newMessage.trim()) {
+                    this.socket.emit('message', { nick: this.nick, text: this.newMessage, room: this.room });
+                    this.newMessage = '';
+                }
+            },
+
+
+             startScanner() {
+                this.isScannerVisible = true;
+                this.$nextTick(() => {
+                    this.qrScanner = new Html5Qrcode("qr-reader");
+                    const qrCodeSuccessCallback = (decodedText, decodedResult) => {
+                        this.scannedCode = decodedText;
+                        this.stopScanner();
+
+                        this.socket.emit('qr_scan', { nick: this.nick, room: this.room, code: decodedText });
+                    };
+                    this.qrScanner.start({ facingMode: "environment" }, { fps: 10, qrbox: { width: 250, height: 250 } }, qrCodeSuccessCallback)
+                        .catch(err => console.log("QR scanner error", err));
+                });
+            },
+
+            stopScanner() {
+                if (this.qrScanner) {
+                    this.qrScanner.stop().then(() => {
+                        console.log("QR Scanner stopped.");
+                    }).catch(err => {
+                        console.log("Failed to stop QR Scanner.", err);
+                    }).finally(() => {
+                        this.isScannerVisible = false;
+                        this.scannedCode = null;
+                    });
+                }
             }
         }
     }
-}
 </script>
 </body>
 </html>

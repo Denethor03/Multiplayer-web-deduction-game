@@ -1,138 +1,170 @@
-/* General Styling */
+/* --- Universal Settings & Mobile-First Body --- */
+* {
+    box-sizing: border-box; /* Makes width/height calculations more intuitive */
+}
+
 body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    background-color: #f4f7f6;
-    color: #333;
+    background-color: #1a252f; /* Darker background for more of a "game" feel */
+    color: #e0e0e0;
     margin: 0;
-    padding: 20px;
+    padding: 15px; /* Less padding on mobile */
+    font-size: 16px; /* A readable base font size for mobile */
 }
 
+/* --- Main Content Container for Mobile --- */
 .container {
-    max-width: 900px;
-    margin: 0 auto;
-    background: #fff;
+    width: 100%;
+    background-color: #2c3e50;
+    padding: 20px;
     border-radius: 8px;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
 }
 
-/* Join Page Styling */
-.join-container {
+/* --- Typography --- */
+h1, h2, h3 {
+    color: #ffffff;
     text-align: center;
-    padding: 50px;
 }
 
-.join-container h1 {
-    color: #4a4a4a;
-    margin-bottom: 30px;
-}
-
-.join-container input[type="text"] {
-    padding: 12px;
-    width: 250px;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    font-size: 16px;
-    margin-right: 10px;
-}
-
-.join-container button {
-    padding: 12px 20px;
-    background-color: #5c67f2;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 16px;
-    transition: background-color 0.2s;
-}
-
-.join-container button:hover {
-    background-color: #4a54d1;
-}
-
-/* Game/Chat Page Styling */
-.game-container {
-    display: flex;
-    height: 80vh;
-}
-
-.sidebar {
-    width: 200px;
-    background-color: #fafafa;
-    border-right: 1px solid #eee;
-    padding: 20px;
-    display: flex;
-    flex-direction: column;
-}
-
-.sidebar h2 {
+h1 {
+    font-size: 1.8rem;
     margin-top: 0;
-    color: #4a4a4a;
-    border-bottom: 2px solid #5c67f2;
-    padding-bottom: 10px;
 }
 
-#player-list {
-    list-style-type: none;
-    padding: 0;
-    margin: 0;
+h3 {
+    font-size: 1.2rem;
+    border-top: 1px solid #4a5a6a;
+    padding-top: 15px;
 }
 
-#player-list li {
-    padding: 8px 0;
-    font-size: 16px;
-}
-
-.main-content {
-    flex-grow: 1;
-    display: flex;
-    flex-direction: column;
-    padding: 20px;
-}
-
-#chat-box {
-    flex-grow: 1;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    padding: 15px;
-    overflow-y: auto; /* Makes the chat scrollable */
-    margin-bottom: 15px;
-    background-color: #fff;
-}
-
-#chat-box p {
-    margin: 0 0 10px 0;
-    word-wrap: break-word;
-}
-
-#chat-box p.system-message {
-    color: #888;
-    font-style: italic;
-}
-
-#chat-form {
-    display: flex;
-}
-
-#message-input {
-    flex-grow: 1;
-    padding: 10px;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    margin-right: 10px;
-    font-size: 14px;
-}
-
-#chat-form button {
-    padding: 10px 20px;
-    background-color: #5c67f2;
-    color: white;
+hr {
     border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 14px;
+    border-top: 1px solid #4a5a6a;
+    margin: 25px 0;
 }
 
-#chat-form button:hover {
-    background-color: #4a54d1;
+/* --- Forms (Inputs and Buttons) - Optimized for Touch --- */
+input[type="text"] {
+    width: 100%;
+    padding: 15px; /* Taller for easier tapping */
+    border: 1px solid #4a5a6a;
+    background-color: #1a252f;
+    color: #e0e0e0;
+    border-radius: 6px;
+    font-size: 1rem;
+    margin-bottom: 15px;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.btn {
+    display: block; /* Make buttons take up the full width */
+    width: 100%;
+    padding: 15px 20px; /* Taller for easier tapping */
+    font-size: 1.1rem;
+    font-weight: bold;
+    text-align: center;
+    cursor: pointer;
+    border-radius: 6px;
+    border: none;
+    color: #fff;
+    transition: background-color 0.2s ease, transform 0.1s ease;
+    margin-bottom: 10px;
+}
+
+.btn:active {
+    transform: scale(0.98); /* Feedback on tap */
+}
+
+.btn:disabled {
+    background-color: #555;
+    color: #999;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.btn-primary { background-color: #007bff; }
+.btn-primary:hover:not(:disabled) { background-color: #0056b3; }
+
+.btn-secondary { background-color: #6c757d; }
+.btn-secondary:hover:not(:disabled) { background-color: #5a6268; }
+
+/* --- Chat & Game Log --- */
+#messages {
+    background-color: #1a252f;
+    border: 1px solid #4a5a6a;
+    border-radius: 4px;
+    padding: 10px;
+    height: 40vh; /* Use a FIXED height of 40% of the screen */
+    overflow-y: scroll; /* This will now work perfectly with the fixed height */
+    margin-bottom: 10px;
+}
+#messages strong { color: #58a6ff; }
+#messages strong:first-child:contains("System"),
+#messages strong:first-child:contains("Game Master") {
+    color: #e85600; /* Orange for system messages */
+}
+
+/* --- Game Specific Styles --- */
+.game-actions {
+    padding: 20px;
+    border: 2px dashed #007bff;
+    background-color: rgba(0,0,0,0.2);
+    border-radius: 8px;
+    margin: 20px 0;
+}
+.team-a { color: #58a6ff; font-weight: bold; }
+.team-b { color: #ff7b72; font-weight: bold; }
+
+/* --- Modal Styles (Crucial for Mobile) --- */
+.modal-overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0, 0, 0, 0.8); display: flex;
+    justify-content: center; align-items: center; z-index: 100;
+}
+.modal-content {
+    background: white;
+    padding: 15px;
+    border-radius: 8px;
+    width: 95vw; /* Use 95% of the viewport width */
+    max-height: 90vh; /* Use 90% of the viewport height */
+    overflow: auto;
+    color: #333; /* Dark text for readability on a white background */
+}
+
+#qr-reader {
+    width: 100%; /* CRITICAL: Make scanner fit the screen */
+    border: 2px solid #ddd;
+    margin-bottom: 15px;
+}
+
+/* --- Media Query for Larger Screens (Tablets and Desktops) --- */
+@media (min-width: 768px) {
+    body {
+        padding: 40px; /* More space on larger screens */
+    }
+
+    .container {
+        max-width: 800px;
+        margin: 0 auto; /* Center the container */
+    }
+
+    .btn {
+        display: inline-block; /* Allow buttons to sit side-by-side */
+        width: auto; /* Buttons are only as wide as their content */
+    }
+
+    /* Make input and button sit on the same line in the home page */
+    .form-group {
+        display: flex;
+        align-items: center;
+    }
+    .form-group input {
+        flex-grow: 1; /* Input takes up available space */
+        margin-right: 10px;
+        margin-bottom: 0;
+    }
 }

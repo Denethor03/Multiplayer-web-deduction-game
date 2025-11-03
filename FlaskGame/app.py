@@ -9,7 +9,7 @@ socketio = SocketIO(app)
 
 
 rooms = {}
-REQUIRED_PLAYERS = 2  # change later to 6 or smth
+REQUIRED_PLAYERS = 3  # change later to 6 or smth
 
 
 LOCATIONS = {

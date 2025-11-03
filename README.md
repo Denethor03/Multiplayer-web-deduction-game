@@ -6,3 +6,7 @@ Praca opisuje przebieg projektowania oraz implementacji wieloosobowej gry webowe
 # Desing and implementation of social deduction web game
  
 The paper describes the design process and implementation of a multiplayer social deduction web game. By interacting with a physical object, such as a QR code, at a specific location, a player can take specific actions aimed at leading their team to victory by achieving an assigned goal or eliminating the opposing team. Team affiliations are not public; it is the player's task to discover who belongs to the enemy faction through analysis of other participants' behavior and deduction. The server-side is based on the Python language using the Flask framework, while the client-side utilizes standard web technologies: JavaScript, HTML, and CSS.
+
+# Link 
+
+Game will be under [this link](https://multiplayer-web-deduction-game-2.onrender.com)

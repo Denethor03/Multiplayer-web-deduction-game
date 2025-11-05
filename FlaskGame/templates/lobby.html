@@ -54,14 +54,10 @@
                 this.socket.emit('join_lobby', { nick: this.nick, room: this.room });
                 this.socket.on('player_update', (data) => { this.playerCount = data.count; });
                 this.socket.on('message', (data) => { this.updateChat(data); });
-
-
                 this.socket.on('start_game', (data) => {
 
                     const me = data.players.find(p => p.nick === this.nick);
                     const myTeam = me ? me.team : 'Unknown';
-
-
                     window.location.href = `/game?nick=${this.nick}&room=${this.room}&team=${myTeam}`;
                 });
             },

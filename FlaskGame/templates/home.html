@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Welcome to Chat</title>
+    <title>Web Game</title>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
@@ -11,7 +11,7 @@
 <body>
 
      <div class="container" x-data="homeApp()">
-        <h1>Simple Chat Rooms</h1>
+        <h1>Join game</h1>
         <div class="form-group">
             <input type="text" x-model="nick" placeholder="Enter your nickname">
         </div>
@@ -37,16 +37,24 @@
                 room: '',
                 error: '',
                 socket: null,
-
+                
                 init() {
                     this.socket = io();
 
-
                     this.socket.on('room_created', (data) => {
-                        // When a room is created, automatically redirect to the chat page
+                        // 
                         this.room = data.room;
                         this.joinRoom();
                     });
+
+                    this.socket.on('validation',(data) => {
+                        if(data.status){
+                            window.location.href = `/lobby?nick=${this.nick}&room=${this.room}`;
+                        }
+                        else{
+                            alert(data.message)
+                        }
+                    })
                 },
 
                 createRoom() {
@@ -62,8 +70,8 @@
                         this.error = 'Nickname and room code are required to join.';
                         return;
                     }
-
-                    window.location.href = `/lobby?nick=${this.nick}&room=${this.room}`;
+                    this.socket.emit('room_validation', {room: this.room })
+                    
                 }
             }
         }

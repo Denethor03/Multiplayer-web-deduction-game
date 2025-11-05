@@ -4,27 +4,36 @@ from flask import Flask, render_template, request
 from flask_socketio import SocketIO, join_room, leave_room, send
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'your-very-secret-game-key-2'
+app.config['SECRET_KEY'] = 'keykeykey'
 socketio = SocketIO(app)
 
 
-rooms = {}
+rooms = {} # this holds everything for "now"
 REQUIRED_PLAYERS = 3  # change later to 6 or smth
 
-
+# TO DO DELETE ROOM on disconect when room empty
 LOCATIONS = {
-    "interest_point1": {
+    "nshr": {
         "name": "North Shrine",
         "actions": ["a1", "a2", "a3"]
     },
-    "interest_point2": {
+    "sshr": {
         "name": "South shrine",
         "actions": ["b1", "b2", "b3"]
     },
-    "interest_point3": {
+    "eshr": {
         "name": "East Shrine",
         "actions": ["c1", "c2", "c3"]
+    },
+    "wshr": {
+        "name": "West Shrine",
+        "actions": ["d1", "d2", "d3"]
+    },
+    "mshr": {
+        "name": "Middle Shrine",
+        "actions": ["e1","e2","e3"]
     }
+    
 }
 
 
@@ -44,30 +53,38 @@ def lobby():
 def game():
     username = request.args.get('nick')
     room = request.args.get('room')
-    team = request.args.get('team')  # Team is now passed in the URL
+    team = request.args.get('team')  
     return render_template('game.html', username=username, room=room, team=team)
 
 
-# socket handles (emit - recieve do - do something ping pong)
+
+
+# H createRoom() -> emit("create room" with nick)
+# S on "create room" add room -> emit("room created" with room code to sender)
+# H on "room created" -> joinRoom() -> lobby(nick,room)
+# H /lobby(nick,room,req_playys) -> init() -> emit("join lobby" with nick, room,)
+# S on "join lobby" add players to room
 
 @socketio.on('create_room')
 def handle_create_room(data):
     room_code = shortuuid.uuid()[:6].upper()
     rooms[room_code] = {'players': []}
-    socketio.emit('room_created', {'room': room_code})
+    socketio.emit('room_created', {'room': room_code}, to=request.sid)
 
 
 @socketio.on('join_lobby')
 def handle_join_lobby(data):
     username = data['nick']
     room = data['room']
-
-    if room not in rooms:
-
-        return
+    
+    # should not happen now 
+    #if room not in rooms:
+    #
+    #    socketio.emit('game_error', {'message': 'No such room exist'}, to=request.sid)
+    #    return
 
     rooms[room]['players'].append({'sid': request.sid, 'nick': username})
-    join_room(room)
+    join_room(room) # build in function that adds player sid to room
 
     player_count = len(rooms[room]['players'])
     socketio.emit('player_update', {'count': player_count, 'required': REQUIRED_PLAYERS}, to=room)
@@ -115,7 +132,12 @@ def handle_qr_scan(data):
 
         socketio.emit('game_error', {'message': 'That QR code is not recognized.'}, to=request.sid)
 
-
+@socketio.on('room_validation')
+def validate_room(data):
+    if data['room'] in rooms:
+        socketio.emit('validation', {'status': True})
+    else:
+        socketio.emit('validation', {'status': False, 'message': 'No room found'})
 
 @socketio.on('game_action')
 def handle_game_action(data):

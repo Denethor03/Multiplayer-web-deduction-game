@@ -99,13 +99,13 @@ input[type="text"] {
     border-radius: 4px;
     padding: 10px;
     height: 40vh; /* Use a FIXED height of 40% of the screen */
-    overflow-y: scroll; /* This will now work perfectly with the fixed height */
+    overflow-y: scroll; 
     margin-bottom: 10px;
 }
 #messages strong { color: #58a6ff; }
 #messages strong:first-child:contains("System"),
 #messages strong:first-child:contains("Game Master") {
-    color: #e85600; /* Orange for system messages */
+    color: #e85600; 
 }
 
 /* --- Game Specific Styles --- */
@@ -157,13 +157,12 @@ input[type="text"] {
         width: auto; /* Buttons are only as wide as their content */
     }
 
-    /* Make input and button sit on the same line in the home page */
     .form-group {
         display: flex;
         align-items: center;
     }
     .form-group input {
-        flex-grow: 1; /* Input takes up available space */
+        flex-grow: 1; 
         margin-right: 10px;
         margin-bottom: 0;
     }

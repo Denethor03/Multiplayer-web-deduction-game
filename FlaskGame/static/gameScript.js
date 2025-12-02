@@ -1,0 +1,90 @@
+function gameApp(username, roomCode, teamName) {
+    return {
+        // Core state
+        nick: username,
+        room: roomCode,
+        team: teamName,
+        socket: null,
+        // Chat state
+        messages: [],
+        newMessage: '',
+        // Game state
+        currentLocation: { id: null, name: null },
+        availableActions: [],
+        isMapVisible: false,
+        // Scanner state
+        isScannerVisible: false,
+        qrScanner: null,
+        scannedCode: null,
+
+        init() {
+            this.socket = io();
+            this.socket.emit('join_game', { nick: this.nick, room: this.room, team: this.team });
+
+            this.socket.on('message', (data) => { this.updateChat(data); });
+
+            this.socket.on('available_actions', (data) => {
+                this.currentLocation = { id: data.location_id, name: data.location_name };
+                this.availableActions = data.actions;
+            });
+
+            this.socket.on('game_error', (data) => { alert(data.message); });
+        },
+
+        updateChat(data) {
+            this.messages.push(data);
+
+            this.$nextTick(() => {
+                const msgBox = document.getElementById('messages');
+                msgBox.scrollTop = msgBox.scrollHeight;
+            });
+        },
+
+        performAction(action) {
+            this.socket.emit('game_action', {
+                nick: this.nick,
+                room: this.room,
+                action: action,
+                location_name: this.currentLocation.name
+            });
+
+            this.availableActions = [];
+            this.currentLocation = { id: null, name: null };
+        },
+
+        sendMessage() {
+            if (this.newMessage.trim()) {
+                this.socket.emit('message', { nick: this.nick, text: this.newMessage, room: this.room });
+                this.newMessage = '';
+            }
+        },
+
+        startScanner() {
+            this.isScannerVisible = true;
+            this.$nextTick(() => {
+                this.qrScanner = new Html5Qrcode("qr-reader");
+                const qrCodeSuccessCallback = (decodedText, decodedResult) => {
+                    this.scannedCode = decodedText;
+                    this.stopScanner();
+
+                    this.socket.emit('qr_scan', { nick: this.nick, room: this.room, code: decodedText });
+                };
+                this.qrScanner.start({ facingMode: "environment" }, { fps: 10, qrbox: { width: 250, height: 250 } }, qrCodeSuccessCallback)
+                    .catch(err => console.log("QR scanner error", err));
+            });
+        },
+
+        stopScanner() {
+            if (this.qrScanner) {
+                this.qrScanner.stop().then(() => {
+                    console.log("QR Scanner stopped.");
+                }).catch(err => {
+                    console.log("Failed to stop QR Scanner.", err);
+                }).finally(() => {
+                    this.isScannerVisible = false;
+                    this.scannedCode = null;
+                });
+            }
+        }
+    }
+}

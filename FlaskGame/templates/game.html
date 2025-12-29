@@ -3,67 +3,114 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Game Started!</title>
+    <title>Urban RPG</title>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
-
 </head>
 <body>
 
+    
+</div>
 <div class="container" x-data="gameApp('{{ username }}', '{{ room }}', '{{ team }}')">
-    <h1>Game in Progress - Room: <span x-text="room"></span></h1>
-
+    
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+        <h3>Room: <span x-text="room"></span></h3>
+        <h3 :class="team === 'Sentinels' ? 'team-a' : 'team-b'" x-text="team"></h3>
+    </div>
 
     <div>
-        <button class="btn btn-secondary" @click="isMapVisible = true">Show Map</button>
-        <button class="btn btn-primary" @click="startScanner()">Scan QR Code</button>
+        <button class="btn btn-secondary" @click="isMapVisible = true">Global Status</button>
+        <button class="btn btn-primary" @click="startScanner()">SCAN SHRINE</button>
     </div>
 
-
-     <div class="game-actions">
-        <div x-show="!currentLocation.name">
-            <h3 >Scan a QR code to discover actions.</h3>
-        </div>
-        <div x-show="currentLocation.name">
-            <h3>Actions for <span x-text="currentLocation.name" style="color: purple;"></span>:</h3>
-
-            <template x-for="action in availableActions" :key="action">
-                <button class="btn btn-primary" @click="performAction(action)" x-text="action"></button>
-            </template>
-        </div>
+    <div class="game-actions" x-show="currentLocation.name">
+        <h3>You are at: <span x-text="currentLocation.name" style="color: #e0e0e0;"></span></h3>
+        <template x-for="action in availableActions" :key="action">
+            <button class="btn" 
+                :class="action === 'STOP_RITUAL' ? 'btn-danger' : 'btn-primary'"
+                @click="performAction(action)" 
+                x-text="action.replace('_', ' ')">
+            </button>
+        </template>
+        <button class="btn btn-secondary" @click="currentLocation = {id:null, name:null}">Cancel</button>
     </div>
 
-    <h3>Game Log & Chat</h3>
+    <h3>Game Log</h3>
     <div id="messages">
         <template x-for="message in messages">
             <div><strong x-text="message.nick + ':'"></strong> <span x-text="message.text"></span></div>
         </template>
     </div>
-    <input type="text" x-model="newMessage" @keyup.enter="sendMessage" placeholder="Type a message...">
-    <button class="btn btn-primary" @click="sendMessage">Send</button>
+    
+    <div class="form-group" style="margin-top:10px;">
+        <input type="text" x-model="newMessage" @keyup.enter="sendMessage" placeholder="Message...">
+        <button class="btn btn-primary" style="width:auto;" @click="sendMessage">Send</button>
+    </div>
 
     <div x-show="isMapVisible" class="modal-overlay" @click.self="isMapVisible = false">
-        <div class="modal-content">
-            <h2 style="margin-top:0;">Game Map</h2>
-            <img src="/static/map.jpg" alt="Game Map" style="max-width: 100%;">
+        <div class="modal-content" style="max-width: 650px;"> <h2 style="margin-top:0;">Global Strategy Map</h2>
+            
+            <div class="map-container">
+            <!-- SVG LAYER -->
+                <svg
+                    class="map-svg"
+                    viewBox="0 0 100 75"
+                    preserveAspectRatio="xMidYMid meet"
+                    x-ref="mapSvg">
+                </svg>
+
+                <!-- SHRINES -->
+                <template x-for="(data, id) in gameState" :key="id">
+                    <div class="map-shrine"
+                        :class="{
+                            'shrine-sentinels': data.owner === 'Sentinels',
+                            'shrine-heretics': data.owner === 'Heretics',
+                            'shrine-neutral': data.owner === 'Neutral',
+                            'shrine-capturing': data.capture_in_progress,
+                            'shrine-blessed': data.is_blessed,
+                            'shrine-trapped-secret': data.is_trapped && team === 'Heretics'
+                        }"
+                        :style="`left: ${data.x}%; top: ${data.y}%;`"
+                        x-text="id.substring(0,2).toUpperCase()">
+                    </div>
+                </template>
+            </div>
+            
+            
+            <div style="margin-top:15px; display:flex; gap:10px; justify-content:center; font-size: 0.9rem; align-items:center;">
+                <div style="display:flex; align-items:center;">
+                    <div class="map-shrine" style="position:static; width:20px; height:20px; transform:none; background-color:#58a6ff; margin-right:5px;"></div> Sentinels
+                </div>
+                <div style="display:flex; align-items:center;">
+                    <div class="map-shrine" style="position:static; width:20px; height:20px; transform:none; background-color:#ff7b72; margin-right:5px;"></div> Heretics
+                </div>
+                <div style="display:flex; align-items:center;">
+                    <div class="map-shrine" style="position:static; width:20px; height:20px; transform:none; border: 2px solid yellow; animation: pulse-red 1s infinite; margin-right:5px; overflow:hidden;"></div> Conflict
+                </div>
+            </div>
+
             <br>
-            <button class="btn btn-primary" @click="isMapVisible = false">Close</button>
+            <button class="btn btn-primary" @click="isMapVisible = false">Close Map</button>
         </div>
     </div>
 
     <div x-show="isScannerVisible" class="modal-overlay">
         <div class="modal-content">
-            <h2 style="margin-top:0;">Scan QR Code</h2>
+            <h2>Scan QR</h2>
             <div id="qr-reader"></div>
-            <button class="btn btn-primary" @click="stopScanner()">Cancel</button>
-            <p x-text="scannedCode ? 'Scanned: ' + scannedCode : 'Point camera at a QR Code'"></p>
+            <button class="btn btn-secondary" @click="stopScanner()">Close</button>
         </div>
     </div>
 </div>
 
-<script src = "../static/gameScript.js"></script>   
+<script src="../static/gameScript.js"></script>   
+
+<style>
+@keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+.btn-danger { background-color: #dc3545; }
+</style>
 
 </body>
 </html>

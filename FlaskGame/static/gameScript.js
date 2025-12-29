@@ -1,31 +1,48 @@
 function gameApp(username, roomCode, teamName) {
     return {
-        // Core state
         nick: username,
         room: roomCode,
         team: teamName,
         socket: null,
-        // Chat state
         messages: [],
         newMessage: '',
-        // Game state
+        gameState: {}, 
         currentLocation: { id: null, name: null },
         availableActions: [],
         isMapVisible: false,
-        // Scanner state
         isScannerVisible: false,
         qrScanner: null,
-        scannedCode: null,
-
+        stunUntil: 0,
+        now: Date.now(),
+        debugLogs: [],
         init() {
             this.socket = io();
+            setInterval(() => this.now = Date.now(), 250);
             this.socket.emit('join_game', { nick: this.nick, room: this.room, team: this.team });
 
             this.socket.on('message', (data) => { this.updateChat(data); });
-
+            
+            this.socket.on('game_over', (data) => {
+                alert(data.message); 
+            });
+            
             this.socket.on('available_actions', (data) => {
                 this.currentLocation = { id: data.location_id, name: data.location_name };
                 this.availableActions = data.actions;
+                this.isScannerVisible = false; 
+                this.stunUntil = data.stun_until;
+                
+            });
+
+            this.socket.on('force_stun', (data) => {
+                this.stunUntil = data.stun_until;
+                this.debugLogs.push("Stun revieved");
+            });
+            this.socket.on('state_update', (data) => {
+                this.gameState = data;
+                this.$nextTick(() => {
+                    this.renderMapLines();
+                });
             });
 
             this.socket.on('game_error', (data) => { alert(data.message); });
@@ -33,10 +50,9 @@ function gameApp(username, roomCode, teamName) {
 
         updateChat(data) {
             this.messages.push(data);
-
             this.$nextTick(() => {
                 const msgBox = document.getElementById('messages');
-                msgBox.scrollTop = msgBox.scrollHeight;
+                if(msgBox) msgBox.scrollTop = msgBox.scrollHeight;
             });
         },
 
@@ -45,7 +61,7 @@ function gameApp(username, roomCode, teamName) {
                 nick: this.nick,
                 room: this.room,
                 action: action,
-                location_name: this.currentLocation.name
+                location_id: this.currentLocation.id 
             });
 
             this.availableActions = [];
@@ -63,28 +79,69 @@ function gameApp(username, roomCode, teamName) {
             this.isScannerVisible = true;
             this.$nextTick(() => {
                 this.qrScanner = new Html5Qrcode("qr-reader");
-                const qrCodeSuccessCallback = (decodedText, decodedResult) => {
-                    this.scannedCode = decodedText;
+                const qrCodeSuccessCallback = (decodedText) => {
                     this.stopScanner();
-
                     this.socket.emit('qr_scan', { nick: this.nick, room: this.room, code: decodedText });
                 };
-                this.qrScanner.start({ facingMode: "environment" }, { fps: 10, qrbox: { width: 250, height: 250 } }, qrCodeSuccessCallback)
-                    .catch(err => console.log("QR scanner error", err));
+                this.qrScanner.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, qrCodeSuccessCallback)
+                    .catch(err => {
+                        console.log("Scanner Error", err);
+                        this.isScannerVisible = false;
+                        alert("Camera permission denied or error.");
+                    });
             });
         },
 
         stopScanner() {
             if (this.qrScanner) {
                 this.qrScanner.stop().then(() => {
-                    console.log("QR Scanner stopped.");
-                }).catch(err => {
-                    console.log("Failed to stop QR Scanner.", err);
-                }).finally(() => {
+                    this.qrScanner.clear();
+                }).catch(err => console.log(err)).finally(() => {
                     this.isScannerVisible = false;
-                    this.scannedCode = null;
                 });
+            } else {
+                this.isScannerVisible = false;
             }
-        }
+        },
+
+        renderMapLines() {
+            const svg = this.$refs.mapSvg;
+            if (!svg) return;
+
+            while (svg.firstChild) {
+                svg.removeChild(svg.firstChild);
+            }
+
+            const drawn = new Set();
+
+            for (const [id, shrine] of Object.entries(this.gameState)) {
+                for (const neighborId of shrine.adj) {
+
+                    if (!this.gameState[neighborId]) continue;
+
+                   
+                    const key = [id, neighborId].sort().join("-");
+                    if (drawn.has(key)) continue;
+                    drawn.add(key);
+
+                    const neighbor = this.gameState[neighborId];
+
+                    const line = document.createElementNS(
+                        "http://www.w3.org/2000/svg",
+                        "line"
+                    );
+
+                    line.setAttribute("x1", shrine.x);
+                    line.setAttribute("y1", shrine.y*0.75);
+
+                    line.setAttribute("x2", neighbor.x);
+                    line.setAttribute("y2", neighbor.y*0.75 );
+                    line.setAttribute("class", "map-line");
+
+                    svg.appendChild(line);
+                }
+            }
+        },
+
     }
 }

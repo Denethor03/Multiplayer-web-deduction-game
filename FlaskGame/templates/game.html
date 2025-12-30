@@ -11,10 +11,45 @@
 </head>
 <body>
 
-    
-</div>
+
 <div class="container" x-data="gameApp('{{ username }}', '{{ room }}', '{{ team }}')">
-    
+    <div x-show="availableActions.includes('SPECTATOR_MODE')" class="ghost-filter">
+        <div class="absolute top-10 w-full text-center text-blue-300 font-bold text-xl uppercase tracking-widest">
+            You are a spectating
+        </div>
+    </div>
+
+<style>
+.ghost-filter {
+    position: fixed;
+    inset: 0;
+    background: rgba(20, 40, 60, 0.4); 
+    pointer-events: none; 
+    z-index: 10;
+}
+</style>
+    <div x-show="councilActive" class="council-overlay">
+        <div class="council-box">
+            <h2 class="council-title">COUNCIL</h2>
+            
+            <template x-if="nick === councilTarget">
+                <div class="text-yellow-400 animate-pulse">
+                    <p>YOU ARE BEING ACCUSED!</p>
+                    
+                </div>
+            </template>
+
+            <template x-if="nick !== councilTarget">
+                <div>
+                    <p>Is <span x-text="councilTarget" class="text-red-500"></span> a Heretic?</p>
+                    <div class="council-buttons">
+                        <button @click="submitVote(true)" class="btn-vote btn-exorcise"> EXORCISE</button>
+                        <button @click="submitVote(false)" class="btn-vote btn-spare"> SPARE</button>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </div>
     <div style="display:flex; justify-content:space-between; align-items:center;">
         <h3>Room: <span x-text="room"></span></h3>
         <h3 :class="team === 'Sentinels' ? 'team-a' : 'team-b'" x-text="team"></h3>

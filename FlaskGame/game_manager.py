@@ -17,6 +17,7 @@ class GameManager:
         
         self.rooms = {}
         self.player_states = {}
+        self.active_votes = {}
 
     def initialize_room(self, room_id):
         initial_state = {}
@@ -55,7 +56,8 @@ class GameManager:
             "at_loc": None,
             "last_scan": 0,
             "stun_until": 0,
-            "last_ability": 0
+            "last_ability": 0,
+            "voted_out" : False
         }
 
     def _get_action_map(self):
@@ -133,7 +135,6 @@ class GameManager:
         if target_data:
             target_data["stun_until"] = time.time() + self.stun_duration
             return [f"Someone cast a shadow! {target_nick} has been cursed and blinded!"]
-        return ["The target vanished into the mists..."]
 
     # get actions
 
@@ -142,12 +143,20 @@ class GameManager:
         p_data = self._get_player_data(room_id, nick)
         user_team = p_data["team"]
         now = time.time()
+        actions = []
+
+        if p_data['voted_out']:
+            return ["SPECTATOR_MODE"]
         
-        # stun at the top - cannot act highest priority
         if now < p_data["stun_until"]:
             return [f"STUNNED ({int(p_data['stun_until'] - now)}s)"]
 
-        actions = ["CALL_VOTE"]
+        targets = self._get_targets_at_location(room_id, shrine_id, nick)
+        
+        for t_nick in targets:
+            t_data = self._get_player_data(room_id, t_nick)
+            if not t_data.get('voted_out'):
+                actions.append(f"VOTE_FOR_{t_nick}")
            
         if user_team == "Heretics":
             targets = self._get_targets_at_location(room_id, shrine_id, nick)
@@ -212,7 +221,6 @@ class GameManager:
         for nick, data in room_players.items():     
             if (data.get("at_loc") == shrine_id and 
                 nick != scanner_nick and 
-                data.get("team") == "Sentinels" and 
                 (now - data.get("last_scan", 0)) < self.capture_time):
                 targets.append(nick)
         return targets
@@ -235,3 +243,47 @@ class GameManager:
             if count >= win_threshold:
                 return team
         return None
+
+    
+    def clear_room_data(self, room_id):
+        if room_id in self.rooms:
+            del self.rooms[room_id]
+        if room_id in self.player_states:
+            del self.player_states[room_id]
+
+    def start_council(self, room_id, target, requester):
+        
+        all_players = self.player_states.get(room_id, {})
+        voters_eligible = [
+            p for p in all_players 
+            if not all_players[p].get('voted_out') and p != target
+        ]
+        
+        self.active_votes[room_id] = {
+            'target': target,
+            'votes': {requester: True}, # still recieves prompt to vote that can change it eh
+            'total_needed': len(voters_eligible)
+        }
+        return True
+
+    def cast_vote(self, room_id, voter, choice):
+        
+        if room_id not in self.active_votes:
+            return None
+
+        vote_data = self.active_votes[room_id]
+        vote_data['votes'][voter] = choice
+        
+        if len(vote_data['votes']) >= vote_data['total_needed']:
+            yes_votes = sum(1 for v in vote_data['votes'].values() if v)
+            
+            result = {
+                'complete': True,
+                'target': vote_data['target'],
+                'success': yes_votes > (vote_data['total_needed'] / 2)
+            }
+            
+            del self.active_votes[room_id]
+            return result
+            
+        return {'complete': False}

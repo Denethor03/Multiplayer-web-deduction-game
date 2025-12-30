@@ -232,8 +232,8 @@ input[type="text"] {
 
 
 .shrine-neutral { background-color: #7f8c8d; }
-.shrine-sentinels { background-color: #58a6ff; } /* Blue */
-.shrine-heretics { background-color: #ff7b72; } /* Red */
+.shrine-sentinels { background-color: #58a6ff; } 
+.shrine-heretics { background-color: #ff7b72; } 
 
 .shrine-capturing {
     animation: pulse-red 1s infinite;
@@ -302,3 +302,62 @@ button:contains("STUNNED") {
     color: #fff;
     font-family: monospace;
 }
+
+.council-overlay {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0, 0, 0, 0.9); 
+    display: flex;
+    align-items: center;
+    justify_content: center;
+    z-index: 9999; 
+}
+
+.council-box {
+    background: #1a1a1a;
+    border: 2px solid #ef4444; 
+    padding: 2rem;
+    border-radius: 12px;
+    text-align: center;
+    width: 90%;
+    max-width: 400px;
+    color: white;
+}
+
+.council-title {
+    color: #ef4444;
+    font-size: 1.5rem;
+    font-weight: bold;
+    margin-bottom: 1rem;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+
+.council-target-name {
+    color: #ef4444;
+    font-weight: bold;
+    font-size: 1.2rem;
+}
+
+.council-buttons {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    margin: 1.5rem 0;
+}
+
+.btn-vote {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 6px;
+    font-weight: bold;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: transform 0.1s;
+}
+
+.btn-vote:active { transform: scale(0.95); }
+
+.btn-exorcise { background: #b91c1c; color: white; } 
+.btn-spare { background: #4b5563; color: white; }    

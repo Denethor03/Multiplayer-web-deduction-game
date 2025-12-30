@@ -15,6 +15,9 @@ function gameApp(username, roomCode, teamName) {
         stunUntil: 0,
         now: Date.now(),
         debugLogs: [],
+        councilActive: false,
+        councilTarget: '',
+        councilAccuser: '',
         init() {
             this.socket = io();
             setInterval(() => this.now = Date.now(), 250);
@@ -36,7 +39,6 @@ function gameApp(username, roomCode, teamName) {
 
             this.socket.on('force_stun', (data) => {
                 this.stunUntil = data.stun_until;
-                this.debugLogs.push("Stun revieved");
             });
             this.socket.on('state_update', (data) => {
                 this.gameState = data;
@@ -46,6 +48,16 @@ function gameApp(username, roomCode, teamName) {
             });
 
             this.socket.on('game_error', (data) => { alert(data.message); });
+            this.socket.on('open_council', (data) => {
+                this.councilTarget = data.target;
+                this.councilAccuser = data.by;
+                this.councilActive = true;
+            });
+
+        
+            this.socket.on('council_ended', () => {
+                this.councilActive = false;
+            });
         },
 
         updateChat(data) {
@@ -104,6 +116,15 @@ function gameApp(username, roomCode, teamName) {
             }
         },
 
+        submitVote(choice) {
+            this.socket.emit('submit_council_vote', {
+                room: this.room,
+                nick: this.nick,
+                choice: choice
+            });
+            this.councilActive = false; 
+        },
+
         renderMapLines() {
             const svg = this.$refs.mapSvg;
             if (!svg) return;
@@ -141,7 +162,6 @@ function gameApp(username, roomCode, teamName) {
                     svg.appendChild(line);
                 }
             }
-        },
-
+        }
     }
 }

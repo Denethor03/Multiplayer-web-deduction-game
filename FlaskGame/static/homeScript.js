@@ -13,7 +13,9 @@ function homeApp() {
                         this.room = data.room;
                         this.joinRoom();
                     });
-
+                    this.socket.on('duplicate_nick', (data) => {
+                        alert(data.message)
+                    })
                     this.socket.on('validation',(data) => {
                         if(data.status){
                             window.location.href = `/lobby?nick=${this.nick}&room=${this.room}`;
@@ -37,7 +39,7 @@ function homeApp() {
                         this.error = 'Nickname and room code are required to join.';
                         return;
                     }
-                    this.socket.emit('room_validation', {room: this.room })
+                    this.socket.emit('room_validation', {room: this.room, nick: this.nick})
                     
                 }
             }

@@ -14,7 +14,7 @@ rooms_players = {}
 
 # --- conf params ---
 # to be moved somewhere with map data
-REQUIRED_PLAYERS = 1
+REQUIRED_PLAYERS = 2
 CAPTURE_TIME = 10
 SABOTAGE_COOLDOWN = 120
 BLESS_COOLDOWN = 180

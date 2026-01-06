@@ -303,26 +303,24 @@ button:contains("STUNNED") {
     font-family: monospace;
 }
 
-.council-overlay {
-    position: fixed;
-    top: 0; left: 0;
-    width: 100%; height: 100%;
-    background: rgba(0, 0, 0, 0.9); 
-    display: flex;
-    align-items: center;
-    justify_content: center;
-    z-index: 9999; 
+.council-banner {
+    position: sticky;
+    top: 0;
+    left: 0;
+    width: 100%;
+    background: #1a1a1a;
+    border-bottom: 2px solid #ef4444;
+    z-index: 1000;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+    animation: slideDown 0.3s ease-out;
 }
 
-.council-box {
-    background: #1a1a1a;
-    border: 2px solid #ef4444; 
-    padding: 2rem;
-    border-radius: 12px;
-    text-align: center;
-    width: 90%;
-    max-width: 400px;
-    color: white;
+.council-compact-content {
+    padding: 10px 15px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
 }
 
 .council-title {
@@ -348,16 +346,125 @@ button:contains("STUNNED") {
 }
 
 .btn-vote {
-    padding: 10px 20px;
-    border: none;
-    border-radius: 6px;
+    padding: 6px 15px;
+    font-size: 0.8rem;
     font-weight: bold;
+    border-radius: 4px;
+    border: none;
     cursor: pointer;
-    font-size: 1rem;
-    transition: transform 0.1s;
+    text-transform: uppercase;
 }
 
 .btn-vote:active { transform: scale(0.95); }
 
-.btn-exorcise { background: #b91c1c; color: white; } 
-.btn-spare { background: #4b5563; color: white; }    
+.status-badge {
+    background-color: #2d3748; 
+    color: #a0aec0; 
+    padding: 10px;
+    margin: 5px 0;
+    border-radius: 4px;
+    border: 1px dashed #4a5568;
+    text-align: center;
+    font-weight: bold;
+    text-transform: uppercase;
+    cursor: default; 
+}
+
+.council-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.9rem;
+}
+
+.council-actions {
+    display: flex;
+    gap: 10px;
+    width: 100%;
+    justify-content: center;
+}
+
+.btn-exorcise-sm { background: #991b1b; color: white; }
+.btn-spare-sm { background: #4b5563; color: white; }
+
+.target-defense-msg {
+    color: #fbbf24;
+    font-weight: bold;
+    font-size: 0.8rem;
+    animation: pulse 1s infinite;
+}
+
+@keyframes slideDown {
+    from { transform: translateY(-100%); }
+    to { transform: translateY(0); }
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+.game-over-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.95); 
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999; 
+    padding: 20px;
+}
+
+.game-over-box {
+    background: #111;
+    border: 3px double #555;
+    padding: 3rem;
+    text-align: center;
+    max-width: 500px;
+    width: 100%;
+    border-radius: 4px;
+    box-shadow: 0 0 30px rgba(0, 0, 0, 1);
+}
+
+.game-over-title {
+    color: #e0e0e0;
+    font-size: 2rem;
+    letter-spacing: 5px;
+    margin-bottom: 1.5rem;
+    border-bottom: 1px solid #333;
+    padding-bottom: 1rem;
+}
+
+.game-over-message {
+    color: #ff7b72; 
+    font-size: 1.25rem;
+    margin-bottom: 2rem;
+    line-height: 1.6;
+}
+
+.btn-return {
+    display: inline-block;
+    background: #238636; 
+    color: white;
+    padding: 12px 30px;
+    text-decoration: none;
+    font-weight: bold;
+    border-radius: 6px;
+    transition: background 0.2s, transform 0.1s;
+    text-transform: uppercase;
+}
+
+.btn-return:hover {
+    background: #2ea043;
+    transform: scale(1.05);
+}
+
+.btn-return:active {
+    transform: scale(0.95);
+}
+.ghost-filter {
+    position: fixed;
+    inset: 0;
+    background: rgba(20, 40, 60, 0.4); 
+    pointer-events: none; 
+    z-index: 10;
+}

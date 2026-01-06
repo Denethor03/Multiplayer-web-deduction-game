@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Urban RPG</title>
+    <title>Game</title>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
@@ -19,37 +19,29 @@
         </div>
     </div>
 
-<style>
-.ghost-filter {
-    position: fixed;
-    inset: 0;
-    background: rgba(20, 40, 60, 0.4); 
-    pointer-events: none; 
-    z-index: 10;
-}
-</style>
-    <div x-show="councilActive" class="council-overlay">
-        <div class="council-box">
-            <h2 class="council-title">COUNCIL</h2>
-            
-            <template x-if="nick === councilTarget">
-                <div class="text-yellow-400 animate-pulse">
-                    <p>YOU ARE BEING ACCUSED!</p>
-                    
+    <div x-show="councilActive" class="council-banner" style="display: none;">
+        <div class="council-compact-content">
+            <div class="council-info">
+                <div>
+                    <strong>COUNCIL:</strong> 
+                    <span x-text="councilAccuser" class="text-accent"></span> accuses 
+                    <span x-text="councilTarget" class="text-danger"></span>
                 </div>
+            </div>
+
+            <template x-if="nick === councilTarget">
+                <div class="target-defense-msg">DEFEND YOURSELF IN CHAT!</div>
             </template>
 
             <template x-if="nick !== councilTarget">
-                <div>
-                    <p>Is <span x-text="councilTarget" class="text-red-500"></span> a Heretic?</p>
-                    <div class="council-buttons">
-                        <button @click="submitVote(true)" class="btn-vote btn-exorcise"> EXORCISE</button>
-                        <button @click="submitVote(false)" class="btn-vote btn-spare"> SPARE</button>
-                    </div>
+                <div class="council-actions">
+                    <button @click="submitVote(true)" class="btn-vote btn-exorcise-sm">EXORCISE</button>
+                    <button @click="submitVote(false)" class="btn-vote btn-spare-sm">SPARE</button>
                 </div>
             </template>
         </div>
     </div>
+    
     <div style="display:flex; justify-content:space-between; align-items:center;">
         <h3>Room: <span x-text="room"></span></h3>
         <h3 :class="team === 'Sentinels' ? 'team-a' : 'team-b'" x-text="team"></h3>
@@ -57,20 +49,36 @@
 
     <div>
         <button class="btn btn-secondary" @click="isMapVisible = true">Global Status</button>
-        <button class="btn btn-primary" @click="startScanner()">SCAN SHRINE</button>
+        <button 
+                class="btn" 
+                :class="isGhost ? 'btn-disabled' : 'btn-primary'" 
+                :disabled="isGhost"
+                @click="startScanner()">
+                <span x-text="isGhost ? 'SPIRITS CANNOT SCAN' : 'SCAN SHRINE'"></span>
+        </button>
     </div>
 
     <div class="game-actions" x-show="currentLocation.name">
-        <h3>You are at: <span x-text="currentLocation.name" style="color: #e0e0e0;"></span></h3>
-        <template x-for="action in availableActions" :key="action">
-            <button class="btn" 
-                :class="action === 'STOP_RITUAL' ? 'btn-danger' : 'btn-primary'"
-                @click="performAction(action)" 
-                x-text="action.replace('_', ' ')">
-            </button>
-        </template>
-        <button class="btn btn-secondary" @click="currentLocation = {id:null, name:null}">Cancel</button>
-    </div>
+    <h3>You are at: <span x-text="currentLocation.name" style="color: #e0e0e0;"></span></h3>
+    
+    <template x-for="action in availableActions" :key="action">
+        <div>
+            <template x-if="['SPECTATOR_MODE', 'STUNNED', 'CD','PROGRESS'].some(status => action.includes(status))">
+                <div class="status-badge" x-text="action.split('_').join(' ')"></div>
+            </template>
+
+            <template x-if="!['SPECTATOR_MODE', 'STUNNED', 'CD','PROGRESS'].some(status => action.includes(status))">
+                <button class="btn" 
+                    :class="action === 'STOP_RITUAL' ? 'btn-danger' : 'btn-primary'"
+                    @click="performAction(action)" 
+                    x-text="action.split('_').join(' ')">
+                </button>
+            </template>
+        </div>
+    </template>
+    
+    <button class="btn btn-secondary" @click="currentLocation = {id:null, name:null}">Cancel</button>
+</div>
 
     <h3>Game Log</h3>
     <div id="messages">
@@ -136,6 +144,18 @@
             <h2>Scan QR</h2>
             <div id="qr-reader"></div>
             <button class="btn btn-secondary" @click="stopScanner()">Close</button>
+        </div>
+    </div>
+    <div x-show="gameOverData" class="game-over-overlay" style="display: none;">
+        <div class="game-over-box">
+            <h1 class="game-over-title">DESTINY REVEALED</h1>  
+            <div class="game-over-message" x-text="gameOverData.message"></div>
+            
+            <div class="game-over-stats">
+                <p>The ritual has concluded.</p>
+            </div>
+
+            <a href="/" class="btn-return">EXIT</a>
         </div>
     </div>
 </div>

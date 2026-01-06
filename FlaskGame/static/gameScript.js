@@ -13,20 +13,21 @@ function gameApp(username, roomCode, teamName) {
         isScannerVisible: false,
         qrScanner: null,
         stunUntil: 0,
-        now: Date.now(),
         debugLogs: [],
         councilActive: false,
         councilTarget: '',
         councilAccuser: '',
+        isGhost : false,
+        gameOverData: null,
         init() {
             this.socket = io();
-            setInterval(() => this.now = Date.now(), 250);
             this.socket.emit('join_game', { nick: this.nick, room: this.room, team: this.team });
 
             this.socket.on('message', (data) => { this.updateChat(data); });
             
             this.socket.on('game_over', (data) => {
-                alert(data.message); 
+                this.gameOverData = data;
+                this.stopScanner();
             });
             
             this.socket.on('available_actions', (data) => {
@@ -34,6 +35,7 @@ function gameApp(username, roomCode, teamName) {
                 this.availableActions = data.actions;
                 this.isScannerVisible = false; 
                 this.stunUntil = data.stun_until;
+                this.isGhost = data.voted_out;
                 
             });
 

@@ -14,7 +14,7 @@ rooms_players = {}
 
 # --- conf params ---
 # to be moved somewhere with map data
-REQUIRED_PLAYERS = 2
+REQUIRED_PLAYERS = 1
 CAPTURE_TIME = 10
 SABOTAGE_COOLDOWN = 120
 BLESS_COOLDOWN = 180
@@ -29,36 +29,36 @@ MAP_DATA = {
         "adj": ["mshr", "eshr"], 
         "type": "hq", 
         "default_owner": "Sentinels",
-        "x": 50, "y": 10  # top center
+        "x": 50, "y": 10  
     },
     "dark_sanctum": {
         "name": "Hidden Sanctum", 
         "adj": ["mshr", "wshr"], 
         "type": "hq", 
         "default_owner": "Heretics",
-        "x": 50, "y": 90  # bottom center
+        "x": 50, "y": 90 
     },
     "mshr": {
         "name": "Middle Shrine", 
         "adj": ["grand_temple", "dark_sanctum", "nshr", "sshr"], 
         "type": "shrine",
-        "x": 50, "y": 50  # middle center
+        "x": 50, "y": 50  
     },
     "nshr": {
         "name": "North Shrine", 
         "adj": ["mshr"], 
         "type": "shrine",
-        "x": 20, "y": 30 # etc
+        "x": 20, "y": 30 
     },
     "sshr": {
         "name": "South Shrine", 
         "adj": ["mshr","eshr"], 
         "type": "shrine",
-        "x": 80, "y": 70
+        "x": 90, "y": 65
     },
     "eshr": {
         "name": "East Shrine", 
-        "adj": ["grand_temple"], 
+        "adj": ["grand_temple",'sshr'], 
         "type": "shrine",
         "x": 80, "y": 30
     },
@@ -66,7 +66,7 @@ MAP_DATA = {
         "name": "West Shrine", 
         "adj": ["dark_sanctum"], 
         "type": "shrine",
-        "x": 20, "y": 70
+        "x": 10, "y": 60
     },
 }
 
@@ -198,7 +198,8 @@ def on_qr_scan(data):
             'location_id': code,
             'location_name': MAP_DATA[code]['name'],
             'actions': actions,
-            'stun_until': p_data.get('stun_until',0) *1000
+            'stun_until': p_data.get('stun_until',0) *1000,
+            'voted_out' : p_data.get('voted_out',0)
         }, to=request.sid)
 
 
@@ -238,11 +239,12 @@ def on_action(data):
 
     if action == "FINALIZE_RITUAL":
         winner = game_manager.check_winner(room)
-        if winner:
+        if winner:  
             socketio.emit('game_over', {
                 'winner': winner,
                 'message': f"The {winner} have asserted total dominance! The ritual is complete."
             }, to=room)
+            print("DEBUG - game over status sent")
 
 @socketio.on('submit_council_vote')
 def handle_council_vote(data):

@@ -14,13 +14,15 @@ rooms_players = {}
 
 # --- conf params ---
 # to be moved somewhere with map data
-REQUIRED_PLAYERS = 2
+REQUIRED_PLAYERS = 3
 CAPTURE_TIME = 10
 SABOTAGE_COOLDOWN = 120
 BLESS_COOLDOWN = 180
 STUN_DURATION = 45
-ROOM_DELETION_TIME = 3
-PLAYER_RECONECT_WINDOW = 2
+ROOM_DELETION_TIME = 300
+PLAYER_RECONECT_WINDOW = 3
+PLAYER_GAME_RECONNECT_WINDOW = 200
+JAM_CD = 300
 # --- =========== ---
 
 MAP_DATA = {
@@ -29,7 +31,7 @@ MAP_DATA = {
         "adj": ["mshr", "eshr"], 
         "type": "hq", 
         "default_owner": "Sentinels",
-        "x": 50, "y": 10  
+        "x": 50, "y": 20  
     },
     "dark_sanctum": {
         "name": "Hidden Sanctum", 
@@ -68,6 +70,12 @@ MAP_DATA = {
         "type": "shrine",
         "x": 10, "y": 60
     },
+    "rtow": {
+        "name": "Radio Tower", 
+        "adj": [], 
+        "type": "jammer", 
+        "x": 20, "y": 50 
+    }
 }
 
 game_manager = GameManager(
@@ -75,7 +83,8 @@ game_manager = GameManager(
     capture_time=CAPTURE_TIME,
     sabotage_cd=SABOTAGE_COOLDOWN,
     bless_cd=BLESS_COOLDOWN,
-    stun_duration=STUN_DURATION
+    stun_duration=STUN_DURATION,
+    jam_cd=JAM_CD
 )
 
 # --- ROUTES ---
@@ -113,7 +122,7 @@ def handle_join_lobby(data):
     
     if room not in rooms_players:
         rooms_players[room] = []
-    existing_player = next((p for p in rooms_players[room] if p['nick'] == username), None) # in case of page refresh
+    existing_player = next((p for p in rooms_players[room] if p['nick'] == username), None) # in case of page refresh/not sure if needed atm
     
     if existing_player:
         existing_player['sid'] = request.sid
@@ -156,10 +165,12 @@ def on_join_game(data):
     if room in rooms_players:
         player = next((p for p in rooms_players[room] if p['nick'] == nick), None)
         if player:
-            player['sid'] = request.sid # Update to new session ID
+            player['sid'] = request.sid 
             player['online'] = True
             join_room(room)
             socketio.emit('state_update', game_manager.get_state(room), to=request.sid)
+    else:
+        socketio.emit('game_error',{'message': 'This game has ended due to inactivity.'}, to=request.sid)
 
 
 @socketio.on('disconnect')
@@ -171,7 +182,11 @@ def handle_disconnect():
             nick = player['nick']  
             
             if player.get('team') is None:
-                threading.Timer(PLAYER_RECONECT_WINDOW, remove_inactive_player, [room_code, nick]).start()
+                timeout = PLAYER_RECONECT_WINDOW
+            else:
+                timeout = PLAYER_GAME_RECONNECT_WINDOW
+            
+            threading.Timer(timeout, remove_inactive_player, [room_code, nick]).start()
             
             anyone_online = any(p.get('online', True) for p in players)
             
@@ -194,11 +209,15 @@ def on_qr_scan(data):
    
     if code in MAP_DATA:
         actions = game_manager.get_available_actions(room, code, nick)
+        
+        stun_dict = p_data.get('stun_until', {})
+        shrine_stun = stun_dict.get(code, 0) if isinstance(stun_dict, dict) else 0
+        
         socketio.emit('available_actions', {
             'location_id': code,
             'location_name': MAP_DATA[code]['name'],
             'actions': actions,
-            'stun_until': p_data.get('stun_until',0) *1000,
+            'stun_until': shrine_stun *1000,
             'voted_out' : p_data.get('voted_out',0)
         }, to=request.sid)
 
@@ -219,7 +238,7 @@ def on_action(data):
     
     if action.startswith("CURSE_"):
         target_nick = action.replace("CURSE_", "")
-        logs = game_manager._do_curse(room, target_nick, nick)
+        logs = game_manager._do_curse(room, target_nick, nick, loc_id)
         target_player = next((p for p in rooms_players[room] if p['nick'] == target_nick), None)
         if target_player:
             target_p_data = game_manager._get_player_data(room, target_nick)
@@ -231,6 +250,14 @@ def on_action(data):
     else:
         player = next((p for p in rooms_players[room] if p['nick'] == nick), None)
         logs = game_manager.process_action(room, loc_id, action, player)
+    
+    if action == "JAM_SIGNALS":
+        room_state = game_manager.get_state(room)
+        if room_state and loc_id in room_state:
+            room_state[loc_id]['last_jam_time'] = time.time()
+        
+        socketio.emit('jam_signals', {'duration': 60}, to=room)
+        logs = ["Someone has scrambled all local map frequencies!"]
     
     for log in logs:
         send({'nick': 'System', 'text': log}, to=room)
@@ -271,6 +298,15 @@ def validate_room(data):
     room_id = data.get('room')
     nick = data.get('nick') 
     if room_id in rooms_players:
+        # check if teams are assigned, if not game has not started very crappy solution but flag not needed
+        game_started = any(p.get('team') is not None for p in rooms_players[room_id])
+        if game_started:
+            socketio.emit('validation', {
+                'status': False, 
+                'message': 'This game has already started. You cannot join.'
+            }, to=request.sid)
+            return
+        
         nick_exists = any(p['nick'] == nick for p in rooms_players[room_id]) 
         if not nick_exists:
             socketio.emit('validation', {'status': True}, to=request.sid)
@@ -298,9 +334,12 @@ def remove_inactive_player(room_code, nick):
         players = rooms_players[room_code]
         player = next((p for p in players if p['nick'] == nick), None)
         
-        if player and not player.get('online', False) and player.get('team') is None:
+        if player and not player.get('online', False):
             players.remove(player)
-            print(f"LOBBY CLEANUP: Removed {nick} from room {room_code} due to inactivity.")      
+            # for debug
+            status = "lobby" if player.get('team') is None else "game"
+            print(f"CLEANUP: Removed {nick} from {status} in room {room_code} due to inactivity.")   
+            # ====  
             socketio.emit('player_update', {
                 'count': len(players), 
                 'required': REQUIRED_PLAYERS

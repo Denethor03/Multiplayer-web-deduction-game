@@ -10,7 +10,7 @@ function lobbyApp(username, roomCode, required) {
             isChatVisible: true,
             messages: [],
             newMessage: '',
-
+            
             init() {
                 this.socket = io();
                 this.socket.emit('join_lobby', { nick: this.nick, room: this.room });

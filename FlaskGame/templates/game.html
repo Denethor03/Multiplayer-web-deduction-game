@@ -48,7 +48,15 @@
     </div>
 
     <div>
-        <button class="btn btn-secondary" @click="isMapVisible = true">Global Status</button>
+        <button 
+            class="btn btn-secondary" 
+            :disabled="now < mapJammedUntil"
+            @click="isMapVisible = true"
+            :class="now < mapJammedUntil ? 'btn-disabled' : ''">
+            
+            <span x-show="now >= mapJammedUntil">Global Status</span>
+            <span x-show="now < mapJammedUntil">SIGNALS JAMMED</span>
+        </button>
         <button 
                 class="btn" 
                 :class="isGhost ? 'btn-disabled' : 'btn-primary'" 
@@ -63,11 +71,11 @@
     
     <template x-for="action in availableActions" :key="action">
         <div>
-            <template x-if="['SPECTATOR_MODE', 'STUNNED', 'CD','PROGRESS'].some(status => action.includes(status))">
+            <template x-if="['SPECTATOR_MODE', 'STUNNED', 'CD','PROGRESS','WAITING','RECHARGING'].some(status => action.includes(status))">
                 <div class="status-badge" x-text="action.split('_').join(' ')"></div>
             </template>
 
-            <template x-if="!['SPECTATOR_MODE', 'STUNNED', 'CD','PROGRESS'].some(status => action.includes(status))">
+            <template x-if="!['SPECTATOR_MODE', 'STUNNED', 'CD','PROGRESS','WAITING','RECHARGING'].some(status => action.includes(status))">
                 <button class="btn" 
                     :class="action === 'STOP_RITUAL' ? 'btn-danger' : 'btn-primary'"
                     @click="performAction(action)" 
@@ -113,7 +121,8 @@
                             'shrine-neutral': data.owner === 'Neutral',
                             'shrine-capturing': data.capture_in_progress,
                             'shrine-blessed': data.is_blessed,
-                            'shrine-trapped-secret': data.is_trapped && team === 'Heretics'
+                            'shrine-trapped-secret': data.is_trapped && team === 'Heretics',
+                            'shrine-jammer': data.type === 'jammer'
                         }"
                         :style="`left: ${data.x}%; top: ${data.y}%;`"
                         x-text="id.substring(0,2).toUpperCase()">

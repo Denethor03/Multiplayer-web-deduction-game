@@ -8,13 +8,13 @@ import time
 # helper methods
 
 class GameManager:
-    def __init__(self, locations_config, sabotage_cd, bless_cd, stun_duration, capture_time=60):
+    def __init__(self, locations_config, sabotage_cd, bless_cd, stun_duration, jam_cd, capture_time=60):
         self.locations_config = locations_config
         self.capture_time = capture_time
         self.sabotage_cd = sabotage_cd
         self.bless_cd = bless_cd
         self.stun_duration = stun_duration
-        
+        self.jam_cd = jam_cd
         self.rooms = {}
         self.player_states = {}
         self.active_votes = {}
@@ -27,6 +27,7 @@ class GameManager:
                 "name": v["name"],
                 "owner": v.get("default_owner", "Neutral"),
                 "adj": v["adj"],
+                "type": v["type"],
                 "x": v["x"],
                 "y": v["y"],
                 "capture_in_progress": False,
@@ -34,7 +35,8 @@ class GameManager:
                 "start_time": 0,
                 "capturer_nick": None,
                 "is_trapped": False,
-                "is_blessed": False
+                "is_blessed": False,
+                "last_jam_time": 0
             }
         self.rooms[room_id] = initial_state
         self.player_states[room_id] = {}
@@ -55,7 +57,7 @@ class GameManager:
             "team": team,
             "at_loc": None,
             "last_scan": 0,
-            "stun_until": 0,
+            "stun_until": {},
             "last_ability": 0,
             "voted_out" : False
         }
@@ -86,7 +88,7 @@ class GameManager:
     def _do_start_ritual(self, state, p_data, player):
         if state.get('is_trapped'):
             state['is_trapped'] = False
-            p_data["stun_until"] = time.time() + self.stun_duration
+            p_data['stun_until'][state['id']] = time.time() + self.stun_duration
             return [f" HEXED! {player['nick']} triggered a trap! Stunned for {self.stun_duration}s."]
         
         
@@ -130,11 +132,11 @@ class GameManager:
         state['capture_in_progress'] = False
         return [f"Someone interrupted the ritual at {state['name']}"]
     
-    def _do_curse(self, room_id, target_nick, scanner_nick):
+    def _do_curse(self, room_id, target_nick, scanner_nick, shrine_id):
         target_data = self._get_player_data(room_id, target_nick)
         if target_data:
-            target_data["stun_until"] = time.time() + self.stun_duration
-            return [f"Someone cast a shadow! {target_nick} has been cursed and blinded!"]
+            target_data["stun_until"][shrine_id] = time.time() + self.stun_duration
+            return [f"Someone cast a shadow! {target_nick} has been cursed!"]
 
     # get actions
 
@@ -147,9 +149,17 @@ class GameManager:
 
         if p_data['voted_out']:
             return ["SPECTATOR_MODE"]
-        
-        if now < p_data["stun_until"]:
-            return [f"STUNNED ({int(p_data['stun_until'] - now)}s)"]
+    
+        if state['type'] == 'jammer':
+            elapsed = now - state.get('last_jam_time', 0)
+    
+            if elapsed < self.jam_cd:
+                remaining = int(self.jam_cd - elapsed)
+                return [f"JAMMER RECHARGING ({remaining}s)"]
+            return ["JAM_SIGNALS"]
+
+        if now < p_data['stun_until'].get(shrine_id, 0):
+            return [f"STUNNED ({int(p_data['stun_until'].get(shrine_id, 0) - now)}s)"]
 
         targets = self._get_targets_at_location(room_id, shrine_id, nick)
         
@@ -167,12 +177,15 @@ class GameManager:
             if state['capturing_team'] != user_team:
                 actions.append("STOP_RITUAL")
             elif state['capturing_team'] == user_team:
-                if self._is_ritual_ready(state):
+                if self._is_ritual_ready(state) and state.get('capturer_nick') != nick:
                     actions.append("FINALIZE_RITUAL")
                 else:
                     req = self.capture_time * (0.5 if (state.get('is_blessed') and user_team == "Sentinels") else 1.0)
                     remaining = int(req - (now - state['start_time']))
-                    actions.append(f"RITUAL IN PROGRESS ({remaining}s)")
+                    if remaining <= 0 and state.get('capturer_nick') == nick:
+                        actions.append("WAITING FOR ALLY TO FINALIZE")
+                    else:
+                        actions.append(f"RITUAL IN PROGRESS ({max(0, remaining)}s)")
             return actions
 
        
@@ -188,6 +201,7 @@ class GameManager:
         elapsed = time.time() - state['start_time']
         required = self.capture_time * (0.5 if (state.get('is_blessed') and state['capturing_team'] == "Sentinels") else 1.0)
         return elapsed >= required
+
 
     def _get_team_abilities(self, state, p_data, now):
         abs_list = []

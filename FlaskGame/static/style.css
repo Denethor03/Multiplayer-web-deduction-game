@@ -468,3 +468,8 @@ button:contains("STUNNED") {
     pointer-events: none; 
     z-index: 10;
 }
+.shrine-jammer {
+    border: 2px dashed #ff00ea;
+    background-color: rgba(78, 5, 247, 0.644);
+    box-shadow: 0 0 10px #ff00ea; 
+}

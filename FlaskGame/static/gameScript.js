@@ -19,23 +19,31 @@ function gameApp(username, roomCode, teamName) {
         councilAccuser: '',
         isGhost : false,
         gameOverData: null,
+        mapJammedUntil: 0,
+        now: Date.now(),
         init() {
             this.socket = io();
             this.socket.emit('join_game', { nick: this.nick, room: this.room, team: this.team });
-
+            setInterval(() => {
+                this.now = Date.now();
+            }, 250);
             this.socket.on('message', (data) => { this.updateChat(data); });
             
             this.socket.on('game_over', (data) => {
                 this.gameOverData = data;
                 this.stopScanner();
             });
-            
+            this.socket.on('jam_signals', (data) => { 
+                this.mapJammedUntil = Date.now() + (data.duration * 1000);
+                this.isMapVisible = false;
+        });
             this.socket.on('available_actions', (data) => {
                 this.currentLocation = { id: data.location_id, name: data.location_name };
                 this.availableActions = data.actions;
                 this.isScannerVisible = false; 
                 this.stunUntil = data.stun_until;
                 this.isGhost = data.voted_out;
+                this.mapJammedUntil = data.map_jammed_until || 0;
                 
             });
 

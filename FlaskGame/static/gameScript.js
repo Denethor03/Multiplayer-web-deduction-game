@@ -57,7 +57,10 @@ function gameApp(username, roomCode, teamName) {
                 });
             });
 
-            this.socket.on('game_error', (data) => { alert(data.message); });
+            this.socket.on('game_error', (data) => { 
+                alert(data.message);
+                window.location.href = '/';
+            });
             this.socket.on('open_council', (data) => {
                 this.councilTarget = data.target;
                 this.councilAccuser = data.by;

@@ -13,9 +13,13 @@ function lobbyApp(username, roomCode, required) {
             
             init() {
                 this.socket = io();
+                this.socket.emit('check_game_status', { nick: this.nick, room: this.room });
                 this.socket.emit('join_lobby', { nick: this.nick, room: this.room });
                 this.socket.on('player_update', (data) => { this.playerCount = data.count; });
-                this.socket.on('message', (data) => { this.updateChat(data); });
+                this.socket.on('message', (data) => { this.updateChat(data); });   
+                this.socket.on('game_already_started', (data) => {
+                    window.location.href = `/game?nick=${this.nick}&room=${this.room}&team=${data.team}`;
+                });
                 this.socket.on('start_game', (data) => {
 
                     const me = data.players.find(p => p.nick === this.nick);

@@ -5,78 +5,24 @@ import threading
 from flask import Flask, render_template, request
 from flask_socketio import SocketIO, join_room, leave_room, send
 from game_manager import GameManager
+from config import (
+    REQUIRED_PLAYERS, 
+    CAPTURE_TIME, 
+    SABOTAGE_COOLDOWN, 
+    BLESS_COOLDOWN, 
+    STUN_DURATION,
+    ROOM_DELETION_TIME,
+    PLAYER_RECONECT_WINDOW,
+    PLAYER_GAME_RECONNECT_WINDOW,
+    JAM_CD,
+    MAP_DATA
+)
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'keykeykey'
 socketio = SocketIO(app)
 
 rooms_players = {}
-
-# --- conf params ---
-# to be moved somewhere with map data
-REQUIRED_PLAYERS = 3
-CAPTURE_TIME = 10
-SABOTAGE_COOLDOWN = 120
-BLESS_COOLDOWN = 180
-STUN_DURATION = 45
-ROOM_DELETION_TIME = 300
-PLAYER_RECONECT_WINDOW = 3
-PLAYER_GAME_RECONNECT_WINDOW = 200
-JAM_CD = 300
-# --- =========== ---
-
-MAP_DATA = {
-    "grand_temple": {
-        "name": "Grand Temple", 
-        "adj": ["mshr", "eshr"], 
-        "type": "hq", 
-        "default_owner": "Sentinels",
-        "x": 50, "y": 20  
-    },
-    "dark_sanctum": {
-        "name": "Hidden Sanctum", 
-        "adj": ["mshr", "wshr"], 
-        "type": "hq", 
-        "default_owner": "Heretics",
-        "x": 50, "y": 90 
-    },
-    "mshr": {
-        "name": "Middle Shrine", 
-        "adj": ["grand_temple", "dark_sanctum", "nshr", "sshr"], 
-        "type": "shrine",
-        "x": 50, "y": 50  
-    },
-    "nshr": {
-        "name": "North Shrine", 
-        "adj": ["mshr"], 
-        "type": "shrine",
-        "x": 20, "y": 30 
-    },
-    "sshr": {
-        "name": "South Shrine", 
-        "adj": ["mshr","eshr"], 
-        "type": "shrine",
-        "x": 90, "y": 65
-    },
-    "eshr": {
-        "name": "East Shrine", 
-        "adj": ["grand_temple",'sshr'], 
-        "type": "shrine",
-        "x": 80, "y": 30
-    },
-    "wshr": {
-        "name": "West Shrine", 
-        "adj": ["dark_sanctum"], 
-        "type": "shrine",
-        "x": 10, "y": 60
-    },
-    "rtow": {
-        "name": "Radio Tower", 
-        "adj": [], 
-        "type": "jammer", 
-        "x": 20, "y": 50 
-    }
-}
 
 game_manager = GameManager(
     MAP_DATA, 
@@ -122,22 +68,32 @@ def handle_join_lobby(data):
     
     if room not in rooms_players:
         rooms_players[room] = []
-    existing_player = next((p for p in rooms_players[room] if p['nick'] == username), None) # in case of page refresh/not sure if needed atm
+     
+    game_started = any(p.get('team') is not None for p in rooms_players[room])
+    
+    existing_player = next((p for p in rooms_players[room] if p['nick'] == username), None)
     
     if existing_player:
         existing_player['sid'] = request.sid
         existing_player['online'] = True
         join_room(room)
-        print(f"DEBUG - page refresh from {username}")
+        print(f"DEBUG - page refresh/reconnect from {username}")
     else:
+        if game_started:
+            socketio.emit('lobby_error', {
+                'message': 'This game has already started.'
+            }, to=request.sid)
+            return
+        
         rooms_players[room].append({
             'sid': request.sid, 
             'nick': username, 
-            'team': None, # only for frontend UI, matches data in game maneasger DO NOT TOUCH
+            'team': None,
             'online': True
         })
         join_room(room)
         send({'nick': 'System', 'text': f'{username} has joined the lobby.'}, to=room)
+    
     player_count = len(rooms_players[room])
     
     socketio.emit('player_update', {
@@ -145,19 +101,27 @@ def handle_join_lobby(data):
         'required': REQUIRED_PLAYERS
     }, to=room)
 
-    # start game if contions met
-    if player_count == REQUIRED_PLAYERS:
+    if player_count == REQUIRED_PLAYERS and not game_started:
         players_in_room = rooms_players[room]
         random.shuffle(players_in_room)
         
         team_a_size = REQUIRED_PLAYERS // 2
         for i, player in enumerate(players_in_room):
             team = 'Sentinels' if i < team_a_size else 'Heretics'
-            player['team'] = team # only for UI in front
+            player['team'] = team
         
             game_manager.register_player(room, player['nick'], team)
     
         socketio.emit('start_game', {'players': players_in_room}, to=room)
+
+@socketio.on('check_game_status')
+def check_game_status(data):
+    room = data['room']
+    nick = data['nick']
+    if room in rooms_players:
+        player = next((p for p in rooms_players[room] if p['nick'] == nick), None)
+        if player and player.get('team') is not None:
+            socketio.emit('game_already_started', {'team': player['team']}, to=request.sid)
 
 @socketio.on('join_game')
 def on_join_game(data):
@@ -169,6 +133,8 @@ def on_join_game(data):
             player['online'] = True
             join_room(room)
             socketio.emit('state_update', game_manager.get_state(room), to=request.sid)
+        else:
+            socketio.emit('game_error',{'message': 'You were removed  from this game for inactivity'},to=request.sid)
     else:
         socketio.emit('game_error',{'message': 'This game has ended due to inactivity.'}, to=request.sid)
 

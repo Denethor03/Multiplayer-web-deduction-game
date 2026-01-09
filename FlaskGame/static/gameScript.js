@@ -23,7 +23,15 @@ function gameApp(username, roomCode, teamName) {
         now: Date.now(),
         init() {
             this.socket = io();
-            this.socket.emit('join_game', { nick: this.nick, room: this.room, team: this.team });
+            this.socket.on('connect', () => {
+                console.log("connected ");
+                this.socket.emit('join_game', { 
+                    room: this.room, 
+                    nick: this.nick,
+                    team: this.team 
+                });
+             });
+            //this.socket.emit('join_game', { nick: this.nick, room: this.room, team: this.team });
             setInterval(() => {
                 this.now = Date.now();
             }, 250);
@@ -43,7 +51,7 @@ function gameApp(username, roomCode, teamName) {
                 this.isScannerVisible = false; 
                 this.stunUntil = data.stun_until;
                 this.isGhost = data.voted_out;
-                this.mapJammedUntil = data.map_jammed_until || 0;
+                //this.mapJammedUntil = data.map_jammed_until || 0; <- this was causing map to come back upon scan but i keep it here in case something else breaks 
                 
             });
 
